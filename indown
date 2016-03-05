@@ -1,0 +1,180 @@
+VERSION="1.6"
+LOGFILE=$CINDIR/indown.log
+SIG="-SIGUSR2"
+echo "" >> $LOGFILE
+date +"%a %b %d %H:%M:%S %Y" >> $LOGFILE
+echo "" >> $LOGFILE
+### display attribute
+twinkle='\E[5m'
+color_red='\E[31;49m'
+display_reset='\E[0m'
+if [[ "$1" = '' ]]; then
+  uid=`id -u`
+  keybase=`expr $uid \* 100 + 19970717`
+  ###keyhex=`printf "0x%x" $keybase`
+  keyprefix=`expr substr $keybase 1 6`
+else
+  keyprefix=$1
+fi
+
+echo $keyprefix
+
+ERRFLAG=0
+UNAME=`uname`
+WHOAMI=`whoami`
+LEN_WHOAMI=`expr length "$WHOAMI"`
+WHOAMI_SUB9=`expr substr "$WHOAMI" 1 9`
+ALL_PROGRAMS="ininit manager scf_sync scf sipgw sipgw2 inaccess inmon inesgateway"
+#other program
+CONFIGFILE=$CINDIR/etc/config.ininit
+if [ -f $CONFIGFILE ];then
+    ALL_PROGRAMS="${ALL_PROGRAMS} `awk '{if( (index($1,"#") == 1) || index("'"$ALL_PROGRAMS"'", $4) ) next; print $4}' $CONFIGFILE | sort | uniq | xargs`"
+fi
+#echo $ALL_PROGRAMS
+
+if [ "$UNAME" = "AIX" ];then
+    SIG="-USR2"
+fi
+
+echoError()
+{
+    if [ "$UNAME" = "Linux" ];then
+        echo -n -e $color_red
+        echo -n -e $twinkle
+        echo "$1"
+        echo -n -e $display_reset
+    else
+        echo "$1"
+    fi
+    return
+}
+
+ALL_PID=
+ININIT_PID=
+MANAGER_PID=
+for TMP_P in $ALL_PROGRAMS
+do
+    TMP_PID=
+    if [ "$UNAME" = "AIX" ];then
+        TMP_PID=`ps -u $WHOAMI | grep -w $TMP_P | grep -v grep | awk '{print $2}' | xargs`
+    else
+        TMP_PID=`ps -u $WHOAMI | grep -w $TMP_P | grep -v grep | awk '{print $1}' | xargs`
+    fi
+    echo "${TMP_P}: ${TMP_PID}" >> $LOGFILE
+    if [ ! -z "$TMP_PID" ];then
+        ALL_PID="${ALL_PID} ${TMP_PID}"
+        if [ "$TMP_P" = "ininit" ];then
+            ININIT_PID=${TMP_PID}
+        elif [ "$TMP_P" = "manager" ];then
+            MANAGER_PID=${TMP_PID}
+        fi
+    fi
+done
+
+if [ -z "$ALL_PID" -a -z "$ININIT_PID" -a -z "$MANAGER_PID" ];then
+    echo "No running programs." >> $LOGFILE
+    echo "No running programs."
+else
+    if [ ! -z "$ININIT_PID" ];then
+        ps -ef | grep -w $ININIT_PID | grep -v grep | awk '{if(($3 == "'"$ININIT_PID"'") && !index("'"$ALL_PID"'",$2)) print}' > tempFile
+        if [ -s tempFile ];then
+            echo "==================== Append program list of ininit ====================" >> $LOGFILE
+            cat tempFile >> $LOGFILE
+            APPEND_PID=`awk '{print $2}' tempFile`
+            ALL_PID="${ALL_PID} ${APPEND_PID}"
+        fi
+        rm -f tempFile
+    fi
+    if [ ! -z "$MANAGER_PID" ];then
+        ps -ef | grep -w $MANAGER_PID | grep -v grep | awk '{if(($3 == "'"$MANAGER_PID"'") && !index("'"$ALL_PID"'",$2)) print}' > tempFile
+        if [ -s tempFile ];then
+            echo "==================== Append program list of manager ====================" >> $LOGFILE
+            cat tempFile >> $LOGFILE
+            APPEND_PID=`awk '{print $2}' tempFile`
+            ALL_PID="${ALL_PID} ${APPEND_PID}"
+        fi
+        rm -f tempFile
+    fi
+    if [ ! -z "$ININIT_PID" ];then
+        kill -9 $ININIT_PID
+    fi
+    kill $SIG $ALL_PID
+    echo "Kill processes ......................OK." >> $LOGFILE
+    echo "Kill processes ......................OK."
+fi
+
+sleep 1
+
+SHM_IDS=`shm | grep -w ${WHOAMI} | grep ${keyprefix} |grep -v grep | awk '{print $1}'`
+
+if [ $LEN_WHOAMI -gt 9 ];then
+    SHM_IDS=`shm | grep ${WHOAMI_SUB9} | grep ${keyprefix} |grep -v grep | awk '{print $1}'`
+fi
+if [ -z "$SHM_IDS" ];then
+    echo "No share memory to be removed." >> $LOGFILE
+    echo "No share memory to be removed."
+else
+    rmRet=`shm -d $SHM_IDS`
+    if [ -z "$rmRet" ];then
+      rmRet="OK"
+    else
+      echo "$rmRet" >> $LOGFILE
+      rmRet=`echo "$rmRet" | grep OK`
+    fi
+    if [ -z "$rmRet" ];then
+      rmRet="FAIL"
+      ERRFLAG=1
+      echoError "Remove share memory .................$rmRet."
+    else
+      rmRet="OK"
+      echo "Remove share memory .................$rmRet."
+    fi
+    echo "Remove share memory .................$rmRet." >> $LOGFILE
+fi
+SEM_IDS=`shm | grep -w ${WHOAMI} | grep ${keyprefix} |grep -v grep | awk '{print $1}'`
+if [ $LEN_WHOAMI -gt 9 ];then
+    SEM_IDS=`shm | grep ${WHOAMI_SUB9} | grep ${keyprefix} |grep -v grep | awk '{print $1}'`
+fi
+
+if [ -z "$SEM_IDS" ];then
+    echo "No semaphore to be removed." >> $LOGFILE
+    echo "No semaphore to be removed."
+else
+    rmRet=`sem -d $SEM_IDS`
+    if [ -z "$rmRet" ];then
+      rmRet="OK"
+      echo "Remove semaphore.....................$rmRet."
+    else
+      echo "$rmRet" >> $LOGFILE
+      echo "$rmRet"
+      rmRet="FAIL"
+      ERRFLAG=1
+      echoError "Remove semaphore.....................$rmRet."
+    fi
+    echo "Remove semaphore.....................$rmRet." >> $LOGFILE
+fi
+
+if [ $ERRFLAG -ne 0 ];then
+    echo "!!!!!! Shutdown error !!!!!!" >> $LOGFILE
+    echoError "!!!!!! Shutdown error !!!!!!" 
+else
+    echo "The system has been shutdown." >> $LOGFILE
+    echo "The system has been shutdown."
+fi
+
+##############################################################################
+# Version: 1.0
+# Description: Common indown script, writen by chenggang at 2013-01-14
+# Version: 1.1
+# Description: Add 'grep -v grep' for avoid kill grep at 2013-03-14
+# Version: 1.2
+# Description: Judge result of 'shm -d' and 'sem -d' at 2013-10-11
+# Version: 1.3
+# Description: Judge result of 'shm -d', modify rule at 2013-11-14
+# Version: 1.4
+# Description: support kill -SIGUSR2, add display attribute for linux, 2014-3-21
+# Version: 1.5
+# Description: support kill non-scf which is started by manager, 2014-4-30
+# Version: 1.6
+# Description: 只删除keyprefix开头的信号量和共享内存 2015-10-15 by liuzhiyong
+##############################################################################

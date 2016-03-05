@@ -1,0 +1,156 @@
+if [ -z "$UTYPE" ]; then
+    UTYPE=Generic                       #   Default system name
+    if [ -s /usr/bin/uname       ]; then UTYPE=`/usr/bin/uname`; fi
+    if [ -s /bin/uname           ]; then UTYPE=`/bin/uname`;     fi
+    if [ -d /var/sadm/pkg/UnixWare ]; then UTYPE=UnixWare; fi
+fi
+
+if [ "$UTYPE" = "SunOS" ]; then
+   PROCESSTYPE=`uname -p`
+   if [ "$PROCESSTYPE" = "i386" ]; then
+      UTYPE="SunOS SOLARISX86"
+   fi
+fi
+
+if [ "$UTYPE" = "Linux" ]; then
+   if [ "$2" = "32" ] || [ "$2" = "64" ]; then BIT="$2";
+   else
+      PROCESSTYPE=`uname -p`
+      if [ "$PROCESSTYPE" = "x86_64" ]; then BIT="64"
+      else BIT="32"
+      fi
+   fi
+fi
+
+if [ "$UTYPE" = "HP-UX" ]; then
+   PROCESSTYPE=`uname -m`
+   if [ "$PROCESSTYPE" = "ia64" ]; then UTYPE="HP-UX-Itanium"; fi
+fi
+
+if [ "$UTYPE" = "AIX" ]; then
+   SYSVERSION=`uname -v`
+   if [ "$SYSVERSION" = "5" ]; then OPTION="-q64"; fi
+fi
+
+echo_usage()
+{
+   echo 
+   echo "Make CEMC for $UTYPE"
+   echo 
+   echo "Usage: build            ; for build CEMC"
+   echo "Usage: build install    ; for install CEMC"
+   echo
+   exit 1
+}
+
+#For Install CEMC
+install_ines()
+{
+   if [ ! -d ${CINDIR}/fifo ]; then mkdir ${CINDIR}/fifo; fi
+   if [ ! -p ${CINDIR}/fifo/access.ininit ]; then mknod ${CINDIR}/fifo/access.ininit p; fi
+   if [ ! -p ${CINDIR}/fifo/ininit.access ]; then mknod ${CINDIR}/fifo/ininit.access p; fi
+}
+
+set_build()
+{
+   MODE_DEFINE=""
+   MODE_INCLUDE=""
+   MODE_LIB=""
+}
+
+if [ "$1" = "install" ]; then
+   install_ines
+   exit 1
+elif [ "$1" = "clean" ]; then
+   rm `find . -name "*.o"`
+   make clean -f makefile.cemc
+   exit 1
+elif [ "$1" = "help" ]; then
+   echo_usage
+elif [ "$1" = "" ]; then
+   set_build
+fi
+
+DEBUGFLAG="-g"
+
+MAKE="make -f makefile.cemc"
+
+if [ "$UTYPE" != "" ]; then
+
+   if [ "$UTYPE" = "SunOS" ]; then
+      ${MAKE} \
+      CC=CC \
+      SYS_DEFINE="-DSOLARIS" \
+      SYS_LIB="-lsocket -lnsl -ldl" \
+      MODE_DEFINE="${MODE_DEFINE}" \
+      MODE_INCLUDE="${MODE_INCLUDE}" \
+      MODE_SRC="${MODE_SRC}" \
+      MODE_LIB="${MODE_LIB}" \
+      DEBUGFLAG="${DEBUGFLAG}"
+      exit 1
+
+   elif [ "$UTYPE" = "HP-UX" ]; then
+      ${MAKE} \
+      CC="aCC +DS2.0 +DA2.0W" \
+      SYS_DEFINE="-DUNIX_SVR4 -DUNIX" \
+      SYS_LIB="-lpthread -lnsl -lsec" \
+      MODE_DEFINE="${MODE_DEFINE}" \
+      MODE_INCLUDE="${MODE_INCLUDE}" \
+      MODE_SRC="${MODE_SRC}" \
+      MODE_LIB="${MODE_LIB}" \
+      DEBUGFLAG="${DEBUGFLAG}"
+      exit 1
+
+   elif [ "$UTYPE" = "HP-UX-Itanium" ]; then
+      ${MAKE} \
+      CC="aCC +DD64 +eh" \
+      SYS_DEFINE="-DUNIX_SVR4 -DUNIX" \
+      SYS_LIB="-lpthread -lnsl -lsec" \
+      MODE_DEFINE="${MODE_DEFINE}" \
+      MODE_INCLUDE="${MODE_INCLUDE}" \
+      MODE_SRC="${MODE_SRC}" \
+      MODE_LIB="${MODE_LIB}" \
+      DEBUGFLAG="${DEBUGFLAG}"
+      exit 1
+
+   elif [ "$UTYPE" = "OSF1" ]; then
+      ${MAKE} \
+      CC=cxx \
+      SYS_DEFINE="-DALPHA -D_REENTRANT" \
+      SYS_LIB="-lxti -ltli -lsecurity -lm -lpthread" \
+      MODE_DEFINE="${MODE_DEFINE}" \
+      MODE_INCLUDE="${MODE_INCLUDE}" \
+      MODE_SRC="${MODE_SRC}" \
+      MODE_LIB="${MODE_LIB}" \
+      DEBUGFLAG="${DEBUGFLAG}"
+      exit 1
+
+   elif [ "$UTYPE" = "Linux" ]; then
+      ${MAKE} \
+      CC="g++ -m$BIT" \
+      cc="gcc -m$BIT" \
+      SYS_DEFINE="-DLINUX -D_LINUX" \
+      SYS_LIB="" \
+      MODE_DEFINE="${MODE_DEFINE}" \
+      MODE_INCLUDE="${MODE_INCLUDE}" \
+      MODE_SRC="${MODE_SRC}" \
+      MODE_LIB="${MODE_LIB}" \
+      DEBUGFLAG="${DEBUGFLAG}"
+      exit 1
+
+   elif [ "$UTYPE" = "AIX" ]; then
+      ${MAKE} \
+      CC="xlC $OPTION" \
+      SYS_DEFINE="-DAIX" \
+      SYS_LIB="-lpthread" \
+      MODE_DEFINE="${MODE_DEFINE}" \
+      MODE_INCLUDE="${MODE_INCLUDE}" \
+      MODE_SRC="${MODE_SRC}" \
+      MODE_LIB="${MODE_LIB}" \
+      DEBUGFLAG="${DEBUGFLAG}"
+      exit 1
+
+   fi
+fi
+
+exit 1

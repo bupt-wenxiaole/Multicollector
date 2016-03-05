@@ -1,0 +1,51 @@
+######################################
+#
+#    makefile for building signal-converge
+#
+######################################
+
+.SUFFIXES: .C .cpp
+
+MAKE=make -f makefile.cemc
+
+COMM_CPP_SRC = cc/conv.C cc/converge.C cc/common.C cc/manageport.C
+
+WCOMM_CPP_SRC = cc/workcode.C cc/common.C cc/manageport.C cc/configfile.C cc/setting_datastructure.C
+WCOMM_C_SRC = cc/ring_buffer.c
+
+
+COMM_OBJ = $(COMM_CPP_SRC:.C=.o) $(COMM_C_SRC:.c=.o)
+OBJ = $(COMM_OBJ)
+
+WCOMM_OBJ = $(WCOMM_C_SRC:.c=.o) $(WCOMM_CPP_SRC:.C=.o)
+WOBJ = $(WCOMM_OBJ) 
+
+EXE = ${CINDIR}/bin/converge
+WEXE = ${CINDIR}/bin/hssp
+
+LOCAL_INCLUDE = -I${CINDIR}/include -Iinc/
+INCLUDE_LIST= ${LOCAL_INCLUDE} ${MODE_INCLUDE}
+DEFINE_LIST = ${SYS_DEFINE} $(MODE_DEFINE)
+LIB_LIST = ${MODE_LIB} ${SYS_LIB}
+
+all:
+	${MAKE} ${EXE}
+	${MAKE} ${WEXE}
+
+${EXE}: ${LIBSCF} ${OBJ}
+	${CC} $(DEBUGFLAG) -o ${EXE} ${OBJ} ${INCLUDE_LIST} ${DEFINE_LIST} ${LIB_LIST}
+
+${WEXE}: ${LIBSCF} ${WOBJ}
+	${CC} $(DEBUGFLAG) -o ${WEXE} ${WOBJ} ${INCLUDE_LIST} ${DEFINE_LIST} ${LIB_LIST} -lpcap -lpthread -lconfig
+
+.C.o:
+	$(CC) $(DEBUGFLAG) -c -o $@ ${SYS_DEFINE} ${LOCAL_INCLUDE} $<
+
+.c.o:
+	$(cc) $(DEBUGFLAG) -c -o $@ ${SYS_DEFINE} ${LOCAL_INCLUDE} $<
+	
+clean:
+	rm -rf ${EXE}
+	rm -rf ${WEXE}
+
+

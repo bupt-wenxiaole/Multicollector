@@ -1,0 +1,49 @@
+#!/bin/bash
+#FileName:	col_ftp
+#Author:	Justing
+#Time:		2015-11-03
+#Function:	C2G Collect Node Ftp Pcap File to Converge Node
+
+HOST=192.168.2.237
+PORT=21
+USER=vpn
+PASSWD=123456
+FTPBIN=/usr/bin/ftp
+S_PATH=/root/tmpstorage
+D_PATH=/newhome/vpn/cin/collect
+
+ftp_file()
+{
+ S_FILE=$S_PATH/$FILE
+ D_FILE=$D_PATH/$FILE
+ $FTPBIN -i -n $HOST $PORT <<! 
+ user $USER $PASSWD 
+ bin 
+ cd $D_PATH
+ put $S_FILE $D_FILE
+ quit
+!
+}
+
+main()
+{
+    if [ "$1" != "" ] 
+    then
+	FILE=$1
+	ftp_file
+	#rm $S_FILE
+	exit 0
+    fi
+    
+    if [ "$1" = "" ] 
+    then
+	echo ""
+	echo "Usage:   col_ftp [file]."
+	echo ""
+    fi
+    exit 0
+}
+
+main $*
+exit 0
+
