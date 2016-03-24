@@ -1,11 +1,4 @@
-/***********************************************************************
 
-              Filename       :  common.c
-              Author         :  qihua.wang, create on 2015-08-05
-              Last modified  :  qihua.wang, 2015-08-05
-              CopyRight(c)   :  2015 CINtel
-
-***********************************************************************/
 
 #include "common.h"
 
